@@ -1,0 +1,92 @@
+@startuml SIGANTENG - Diagram Arsitektur Sistem
+!theme vibrant
+
+title "Diagram Arsitektur Sistem SIGANTENG"
+
+!define RECTANGLE class
+
+package "Frontend (Next.js)" {
+    [Halaman Utama] as landing
+    [Antarmuka Chat] as chat
+    [Dasbor Pengguna] as dashboard
+
+    package "Komponen UI" {
+        [Input Chat] as chatinput
+        [Pengunggah Gambar] as imageupload
+        [Pesan Chat] as chatmsg
+    }
+
+    [Middleware Autentikasi] as middleware
+}
+
+package "Backend (FastAPI)" {
+    package "Lapisan API" {
+        [API Chat] as chatapi
+        [API "Wow Moment"] as wowapi
+        [API Autentikasi] as authapi
+    }
+
+    package "Lapisan Layanan (Services)" {
+        [Layanan Visi (Vision)] as vision
+        [Layanan NLP (Poem)] as nlp
+        [Layanan TTS (Suara)] as tts
+        [Layanan Orkestrasi] as orchestration
+    }
+}
+
+package "Layanan Pihak Ketiga (External Services)" {
+    [Clerk] as clerk
+    [Cloudinary] as cloudinary
+    database "Neon DB (PostgreSQL)" as db
+    [Model Hugging Face] as hf
+}
+
+' --- Alur Interaksi ---
+
+' Frontend
+landing --> chat : "Coba Sekarang"
+chat --> chatinput
+chat --> imageupload
+chat --> chatmsg
+chat --> middleware : "Minta akses ke Dasbor"
+middleware --> dashboard : "Akses Diberikan (jika login)"
+middleware --> clerk : "Verifikasi Sesi"
+
+' Backend
+chat --> chatapi : "POST /api/v1/ai/chat"
+chat --> wowapi : "POST /api/v1/ai/wow-moment"
+dashboard --> authapi : "GET /api/v1/conversations"
+
+' Service Layer
+chatapi --> nlp
+wowapi --> orchestration
+orchestration --> vision : "1. Dapatkan deskripsi gambar"
+orchestration --> nlp : "2. Buat puisi dari deskripsi"
+orchestration --> tts : "3. Ubah puisi jadi suara"
+
+' External Services
+authapi --> db : "Ambil data pengguna & riwayat"
+vision --> hf : "Gunakan model BLIP"
+nlp --> hf : "Gunakan model GPT-2"
+tts --> hf : "Gunakan model SpeechT5"
+wowapi --> cloudinary : "Simpan gambar & audio"
+middleware <--> clerk : "Manajemen Sesi & JWT"
+
+
+note right of orchestration
+  **Alur Orkestrasi "Wow Moment"**
+  1. Terima gambar dari pengguna.
+  2. Panggil Layanan Visi untuk deskripsi.
+  3. Panggil Layanan NLP untuk membuat puisi.
+  4. Panggil Layanan TTS untuk narasi suara.
+  5. Simpan media ke Cloudinary.
+  6. Kembalikan hasil ke pengguna.
+end note
+
+note left of chat
+  **"Magic Moment"**
+  Akses publik tanpa perlu login.
+  Interaksi chat teks sederhana.
+end note
+
+@enduml

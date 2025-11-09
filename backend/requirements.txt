@@ -1,0 +1,28 @@
+# === Core Framework ===
+# Pustaka dasar untuk membangun dan menjalankan server API
+fastapi
+uvicorn[standard]
+python-dotenv
+python-multipart
+
+# === Layanan Cloud & Database ===
+# Klien untuk berinteraksi dengan layanan eksternal
+cloudinary
+clerk-python-sdk
+psycopg2-binary
+
+# === AI & Machine Learning ===
+# Pustaka inti untuk menjalankan model-model dari Hugging Face
+transformers
+torch
+torchaudio
+torchvision
+
+# Pustaka spesifik untuk model atau tugas tertentu
+sentence-transformers  # Untuk model embeddings
+openai-whisper         # Untuk model ASR Whisper
+
+# === Utilitas Tambahan ===
+# Pustaka untuk menangani file audio, dll.
+pydub
+soundfile

@@ -1,0 +1,76 @@
+# --- File .gitignore Komprehensif untuk Proyek SIGANTENG ---
+# File ini dihasilkan untuk mengabaikan file yang tidak perlu dilacak oleh Git.
+
+# 1. Aturan Umum
+# Abaikan file environment yang berisi kredensial sensitif
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Abaikan log
+*.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# Abaikan direktori yang dibuat oleh sistem operasi
+.DS_Store
+Thumbs.db
+
+
+# 2. Aturan Spesifik untuk Frontend (Node.js / Next.js)
+# Direktori dependensi
+frontend/node_modules
+
+# Direktori build Next.js
+frontend/.next
+
+# File output build statis
+frontend/out/
+
+# File cache dan log lainnya
+frontend/.pnpm-store/
+frontend/build/
+frontend/dist/
+
+
+# 3. Aturan Spesifik untuk Backend (Python / FastAPI)
+# Direktori virtual environment
+backend/venv
+backend/.venv
+backend/env
+backend/ENV
+
+# Direktori cache Python
+backend/__pycache__
+backend/.pytest_cache
+backend/.mypy_cache
+backend/.ruff_cache
+
+# File Python yang terkompilasi
+*.pyc
+*.pyo
+*.pyd
+
+# File database lokal (jika menggunakan SQLite untuk pengembangan)
+*.sqlite3
+*.db
+
+
+# 4. Aturan untuk IDE (Editor Kode)
+# Abaikan konfigurasi spesifik per pengguna dari editor kode
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+
+# 5. Aturan untuk Data
+# Abaikan semua file di dalam direktori data, kecuali file placeholder .gitkeep
+backend/data/*
+!backend/data/.gitkeep
