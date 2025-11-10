@@ -1,86 +1,78 @@
 # Backend API SIGANTENG
 
-Ini adalah layanan backend yang dibangun menggunakan FastAPI untuk proyek SIGANTENG. Backend ini bertanggung jawab atas semua logika bisnis, orkestrasi model AI, dan interaksi dengan database.
+Layanan backend ini dibangun menggunakan **FastAPI** dan dirancang dengan arsitektur modern untuk menangani tugas-tugas AI yang kompleks secara asinkron.
 
-## Fitur Utama
+## Arsitektur & Pola Desain
 
-- **API Berbasis REST**: Menyediakan endpoint yang jelas dan terstruktur untuk semua kebutuhan frontend.
-- **Orkestrasi AI**: Mengelola alur kompleks "Wow Moment" dari pemrosesan gambar hingga sintesis suara.
-- **Terintegrasi dengan Layanan Eksternal**: Terhubung dengan database Neon, autentikasi Clerk, dan penyimpanan Cloudinary.
+Backend ini tidak hanya sekadar API, tetapi sebuah sistem yang dirancang untuk keandalan dan skalabilitas, menggunakan beberapa pola desain utama:
 
-## Endpoints API
+1.  **Arsitektur Asinkron dengan Celery & Redis**:
+    - **Masalah**: Tugas AI (seperti memanggil model bahasa atau mengubah teks menjadi suara) bisa memakan waktu lama dan akan menyebabkan *timeout* jika ditangani secara sinkron dalam permintaan HTTP.
+    - **Solusi**: Kami menggunakan **Celery** sebagai *task queue* dan **Redis** sebagai *message broker*. Saat permintaan untuk tugas berat masuk, API hanya menempatkan tugas di antrian dan segera mengembalikan `task_id` kepada klien. **Celery Worker**, yang berjalan sebagai proses terpisah, akan mengambil tugas tersebut dan mengerjakannya di latar belakang.
 
-Dokumentasi API interaktif (Swagger UI) tersedia di `/docs` saat server berjalan.
+2.  **Pola Desain Adapter**:
+    - **Masalah**: Mengikat kode layanan secara langsung ke satu penyedia AI (misalnya, hanya OpenAI) membuatnya sulit untuk diganti atau dikembangkan.
+    - **Solusi**: Kami menggunakan *Adapter Pattern*. Untuk setiap jenis layanan AI (LLM, Vision, TTS, dll.), kami mendefinisikan sebuah *interface* dasar (misalnya, `BaseLLMAdapter`). Kemudian, kami membuat implementasi konkret untuk setiap penyedia (`OpenAILLMAdapter`, `HuggingFaceLLMAdapter`). *Service layer* (misalnya, `LLMService`) kemudian menggunakan *interface* ini, sehingga penyedia model dapat diganti dengan mudah melalui konfigurasi tanpa mengubah logika bisnis.
 
-- `POST /api/v1/ai/chat`: Endpoint untuk interaksi chat sederhana.
-- `POST /api/v1/ai/wow-moment`: Endpoint untuk orkestrasi "Wow Moment" (gambar -> puisi -> suara).
-- `GET /api/v1/kb/search`: (Placeholder) Endpoint untuk pencarian di knowledge base.
+3.  **Dependency Injection**:
+    - **Masalah**: Membuat instance layanan secara global dapat menyebabkan masalah saat pengujian (misalnya, mencoba terhubung ke database saat tes dikumpulkan).
+    - **Solusi**: Kami memanfaatkan sistem *Dependency Injection* bawaan FastAPI (`Depends`). Layanan diinisialisasi per permintaan, memungkinkan kami untuk dengan mudah menggantinya dengan *mock object* selama pengujian.
 
-## Tumpukan Teknologi & Model AI
+## Alur Kerja API Non-Blocking
 
-Backend ini menggunakan FastAPI dan Pydantic untuk performa dan validasi data yang solid. Kekuatan utamanya terletak pada integrasi dengan model-model AI *open-source* yang dipilih secara cermat, dengan penekanan pada pemahaman Bahasa Indonesia.
+Untuk tugas yang berjalan lama, alur kerjanya adalah sebagai berikut:
 
-- **Framework**: FastAPI
-- **Bahasa**: Python 3.11+
-- **Validasi Data**: Pydantic
+1.  **`POST /background/generate_text`**:
+    - Klien mengirimkan *prompt*.
+    - API memvalidasi input dan memanggil `AIOrchestratorService` untuk mengirimkan tugas ke Celery.
+    - API segera merespons dengan `HTTP 202 Accepted` dan sebuah `task_id`.
 
-### Model AI yang Digunakan
+2.  **`GET /background/tasks/{task_id}`**:
+    - Klien menggunakan `task_id` untuk secara berkala (polling) menanyakan status tugas.
+    - API akan merespons dengan status (`PENDING`, `SUCCESS`, `FAILURE`) dan hasilnya jika sudah tersedia.
 
-Berikut adalah daftar model yang menjadi inti dari layanan AI kami:
-
-| Fungsi | Model | Peran dalam Layanan |
-| :--- | :--- | :--- |
-| **Visi (CV)** | `Salesforce/blip-image-captioning-base` | Menerjemahkan gambar menjadi deskripsi teks sebagai dasar pembuatan puisi. |
-| **Generator Puisi** | `cahya/gpt2-small-indonesian` | Mengambil deskripsi gambar dan prompt untuk menghasilkan puisi kreatif. |
-| **Analisis Sentimen**| `indobenchmark/indobert-base-p2` | Memahami nuansa emosional dari input teks untuk respons yang lebih baik. |
-| **ASR (Suara → Teks)**| `openai/whisper-base` | Mengonversi input audio dari pengguna menjadi teks yang dapat diproses. |
-| **TTS (Teks → Suara)**| `facebook/mms-tts-ind` | Mengubah teks puisi yang dihasilkan menjadi narasi suara berbahasa Indonesia. |
-| **Embeddings** | `all-MiniLM-L6-v2` | *(Untuk pengembangan masa depan)* Akan digunakan untuk membangun *Knowledge Base* dengan pencarian semantik. |
-
-## Setup Lokal
+## Setup & Menjalankan Lokal
 
 ### Prasyarat
 
 - Python 3.11+
-- Pip (package installer)
+- Docker (untuk menjalankan Redis)
 
 ### Langkah-langkah
 
-1.  **Navigasi ke Direktori Backend**
+1.  **Navigasi & Buat Virtual Environment**
     ```bash
     cd backend
+    python -m venv .venv
+    source .venv/bin/activate  # atau .venv\Scripts\activate di Windows
     ```
 
-2.  **Buat dan Aktifkan Virtual Environment** (Disarankan)
-    ```bash
-    python -m venv venv
-    # Windows
-    venv\Scripts\activate
-    # macOS/Linux
-    source venv/bin/activate
-    ```
-
-3.  **Install Dependensi**
+2.  **Install Dependensi**
     ```bash
     pip install -r requirements.txt
     ```
 
-4.  **Konfigurasi Environment**
-    Pastikan Anda sudah menyalin `backend/.env.example` menjadi `backend/.env` dan mengisinya dengan kredensial yang benar.
+3.  **Konfigurasi Environment**
+    - Salin `backend/.env.example` menjadi `backend/.env`.
+    - Isi semua variabel yang diperlukan (Database, Redis, API Keys, dll.).
 
-5.  **Jalankan Server**
+4.  **Jalankan Layanan Pendukung (Redis)**
+    Buka terminal dan jalankan Redis menggunakan Docker.
     ```bash
-    uvicorn app.main:app --reload
+    docker run -d -p 6379:6379 redis:7
     ```
-    Server akan aktif di `http://localhost:8000`.
 
-## Arsitektur Layanan
+5.  **Jalankan Aplikasi (API & Worker)**
+    Anda memerlukan **dua terminal terpisah** di dalam direktori `backend` yang sudah teraktivasi *virtual environment*-nya.
 
-Backend dirancang dengan arsitektur berorientasi layanan (*service-oriented*) untuk memisahkan setiap tugas ke dalam modulnya sendiri, membuatnya lebih mudah untuk dikelola dan diskalakan.
+    **Terminal 1: Jalankan Celery Worker**
+    ```bash
+    celery -A app.core.celery_app.celery_app worker --loglevel=info
+    ```
+    Worker ini akan memantau dan mengerjakan tugas dari antrian Redis.
 
-- **`app/api/`**: Mendefinisikan semua endpoint API.
-- **`app/services/`**: Berisi logika inti untuk setiap fungsionalitas (misalnya, `vision_service.py`, `tts_service.py`).
-- **`app/core/`**: Mengelola konfigurasi dan dependensi inti.
-- **`app/models/`**: (Placeholder) Skema data dan interaksi database.
-
-Model AI diunduh dan di-cache secara otomatis pada saat pertama kali layanan dijalankan. Pastikan Anda memiliki koneksi internet yang stabil saat pertama kali menjalankan.
+    **Terminal 2: Jalankan API Server**
+    ```bash
+    uvicorn main:app --reload
+    ```
+    Server API akan aktif di `http://localhost:8000`. Dokumentasi interaktif (Swagger UI) tersedia di `http://localhost:8000/docs`.

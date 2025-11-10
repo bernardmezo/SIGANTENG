@@ -1,69 +1,87 @@
-# SIGANTENG - Asisten AI Kreatif Anda
+# SIGANTENG - Asisten AI Kreatif Multimodal
 
-Selamat datang di SIGANTENG, sebuah proyek portofolio yang mendemonstrasikan kekuatan asisten AI multimodal. SIGANTENG dirancang untuk memberikan pengalaman interaktif yang memukau melalui dua alur utama: **"Magic Moment"** untuk interaksi instan tanpa login, dan **"Wow Moment"** yang mengubah gambar menjadi puisi dan narasi suara.
+Selamat datang di SIGANTENG, sebuah proyek portofolio yang mendemonstrasikan arsitektur aplikasi AI modern yang andal dan skalabel. SIGANTENG dirancang untuk memberikan pengalaman interaktif melalui orkestrasi *background jobs* untuk tugas-tugas AI yang kompleks.
 
 ## ✨ Fitur Utama
 
-- **Magic Moment**: Coba langsung kemampuan chat AI tanpa perlu mendaftar. Pengalaman pertama yang mulus dan tanpa friksi.
-- **Wow Moment**: Orkestrasi AI yang kompleks:
-    1.  **Unggah Gambar**: Pilih gambar apa pun yang menginspirasi Anda.
-    2.  **Puisi Otomatis**: AI akan menganalisis gambar dan menciptakan puisi yang unik.
-    3.  **Narasi Suara**: Puisi tersebut akan dibacakan dengan suara yang ekspresif.
-- **Interaksi Suara (ASR)**: Berbicara langsung ke aplikasi dan saksikan ucapan Anda diubah menjadi teks secara *real-time*.
-- **Autentikasi & Riwayat**: Daftar untuk menyimpan riwayat percakapan dan mengakses fitur lanjutan.
+- **Arsitektur Asinkron**: Menggunakan **Celery** dan **Redis** untuk menangani tugas AI yang berat (seperti generasi gambar atau teks) di latar belakang, memastikan API tetap responsif.
+- **Pola Desain Adapter**: Memisahkan logika bisnis dari implementasi model AI spesifik, memungkinkan sistem untuk beralih antara penyedia layanan (misalnya, OpenAI ke Hugging Face) dengan mudah.
+- **"Wow Moment"**: Alur kerja orkestrasi AI yang kompleks:
+    1.  **Unggah Gambar**: Pengguna mengunggah gambar.
+    2.  **Analisis & Puisi**: *Background job* menganalisis gambar dan menghasilkan puisi.
+    3.  **Narasi Suara**: *Background job* lain mengubah puisi menjadi narasi suara.
+- **API Non-Blocking**: Klien (frontend) dapat mengirim permintaan *job* dan menerima `task_id` untuk memeriksa statusnya nanti, mencegah *timeout* HTTP.
 
 ## 🚀 Tumpukan Teknologi (Tech Stack)
 
-Arsitektur SIGANTENG dibangun di atas teknologi modern yang andal dan skalabel, dengan fokus khusus pada model AI yang dioptimalkan untuk Bahasa Indonesia.
+Arsitektur SIGANTENG dibangun di atas tumpukan teknologi modern yang dipilih untuk skalabilitas dan kemudahan deployment.
 
-| Kategori | Teknologi / Model AI | Keterangan |
+| Kategori | Teknologi | Platform Deployment |
 | :--- | :--- | :--- |
-| **Frontend** | [Next.js](https://nextjs.org/), TypeScript, Tailwind CSS | Antarmuka pengguna yang modern dan responsif. |
-| **Backend** | [FastAPI](https://fastapi.tiangolo.com/), Python | API berperforma tinggi untuk orkestrasi AI. |
-| **Database** | [Neon](https://neon.tech/) (PostgreSQL) | Database *serverless* yang skalabel. |
-| **Autentikasi** | [Clerk](https://clerk.com/) | Manajemen pengguna dan sesi yang aman. |
-| **Penyimpanan** | [Cloudinary](https://cloudinary.com/) | Penyimpanan dan pengiriman aset media. |
-| | | |
-| **Visi (CV)** | `Salesforce/blip-image-captioning-base` | Menganalisis dan memberi deskripsi pada gambar. |
-| **NLP (Teks)** | `cahya/gpt2-small-indonesian` | Menghasilkan puisi dalam Bahasa Indonesia. |
-| **Analisis Sentimen**| `indobenchmark/indobert-base-p2` | Memahami sentimen dari teks berbahasa Indonesia. |
-| **ASR (Suara → Teks)**| `openai/whisper-base` | Mengubah ucapan menjadi teks. |
-| **TTS (Teks → Suara)**| `facebook/mms-tts-ind` | Menghasilkan narasi suara dalam Bahasa Indonesia. |
-| **Embeddings (KB)**| `all-MiniLM-L6-v2` | *[Masa Depan]* Untuk fitur pencarian semantik. |
+| **Frontend** | Next.js, TypeScript, Tailwind CSS | **Vercel** |
+| **Backend API** | FastAPI, Python | **Render** |
+| **Background Worker** | Celery, Python | **Render** |
+| **Database** | PostgreSQL | **Neon** |
+| **Message Broker** | Redis | **Render** |
+| **Autentikasi** | Clerk | Clerk |
+| **Penyimpanan File** | Cloudinary | Cloudinary |
 
-## 🛠️ Memulai Proyek
-
-Untuk menjalankan proyek ini secara lokal, ikuti langkah-langkah berikut.
+## 🛠️ Memulai Proyek Secara Lokal
 
 ### Prasyarat
 
-- Node.js (v20 atau lebih baru)
-- Python (v3.11 atau lebih baru)
-- Akun di [Neon](https://neon.tech/), [Clerk](https://clerk.com/), dan [Cloudinary](https://cloudinary.com/).
+- Node.js (v20+)
+- Python (v3.11+)
+- Docker (untuk menjalankan Redis dengan mudah)
+- Akun di [Neon](https://neon.tech/), [Clerk](https://clerk.com/), [Cloudinary](https://cloudinary.com/), dan [OpenAI](https://openai.com/).
 
-### 1. Kloning Repositori
+### 1. Kloning & Konfigurasi
 
 ```bash
 git clone https://github.com/username/siganteng.git
 cd siganteng
+
+# Salin file environment backend
+cp backend/.env.example backend/.env
+
+# Salin variabel frontend ke file environment-nya sendiri
+# (Buat file frontend/.env.local dan salin bagian frontend dari backend/.env.example)
+```
+Buka `backend/.env` dan isi **semua** variabel dengan kredensial Anda.
+
+### 2. Menjalankan Layanan Backend
+
+Buka 3 terminal terpisah.
+
+**Terminal 1: Jalankan Redis (via Docker)**
+```bash
+docker run -d -p 6379:6379 redis:7
 ```
 
-### 2. Konfigurasi Environment
+**Terminal 2: Jalankan Backend API & Worker**
+```bash
+# Arahkan ke direktori backend
+cd backend
 
-Proyek ini membutuhkan beberapa kunci API dan kredensial.
+# Buat dan aktifkan virtual environment
+python -m venv .venv
+source .venv/bin/activate  # atau .venv\Scripts\activate di Windows
 
-1.  Salin file `.env.example` di root direktori dan di dalam `backend/` menjadi `.env`.
-    ```bash
-    cp .env.example .env
-    cp backend/.env.example backend/.env
-    ```
-2.  Isi semua variabel yang diperlukan di kedua file `.env` dengan kredensial yang Anda dapatkan dari Neon, Clerk, dan Cloudinary.
+# Install dependensi
+pip install -r requirements.txt
 
-### 3. Instalasi & Menjalankan
+# Jalankan Celery Worker
+celery -A app.core.celery_app.celery_app worker --loglevel=info
 
-Buka dua terminal terpisah untuk Frontend dan Backend.
+# Jalankan API Server (di terminal lain)
+uvicorn main:app --reload
+```
+- API akan berjalan di `http://localhost:8000`.
+- Celery worker sekarang memantau tugas baru.
 
-**Terminal 1: Frontend**
+### 3. Menjalankan Frontend
+
+**Terminal 3: Jalankan Frontend**
 ```bash
 # Arahkan ke direktori frontend
 cd frontend
@@ -74,31 +92,16 @@ npm install
 # Jalankan server pengembangan
 npm run dev
 ```
-Frontend akan berjalan di `http://localhost:3000`.
-
-**Terminal 2: Backend**
-```bash
-# Arahkan ke direktori backend
-cd backend
-
-# (Opsional, disarankan) Buat dan aktifkan virtual environment
-python -m venv venv
-source venv/bin/activate  # atau venv\Scripts\activate di Windows
-
-# Install dependensi
-pip install -r requirements.txt
-
-# Jalankan server pengembangan
-uvicorn app.main:app --reload
-```
-Backend akan berjalan di `http://localhost:8000`. Anda bisa mengakses dokumentasi API di `http://localhost:8000/docs`.
+- Frontend akan berjalan di `http://localhost:3000`.
 
 ## 📂 Struktur Proyek
 
-Proyek ini memiliki struktur monorepo sederhana dengan dua direktori utama: `frontend` dan `backend`.
+Proyek ini memiliki struktur monorepo dengan dua direktori utama: `frontend` dan `backend`.
 
-- **`/frontend`**: Aplikasi Next.js yang menangani semua antarmuka pengguna (UI) dan interaksi sisi klien.
-- **`/backend`**: API FastAPI yang menyediakan layanan AI, mengelola data, dan berinteraksi dengan database.
-- **Dokumentasi**: File seperti `system_design.md` dan `architect.plantuml` menjelaskan arsitektur dan alur sistem secara mendalam.
-
-Lihat `file_tree.md` untuk rincian struktur file yang lebih lengkap.
+- **`/frontend`**: Aplikasi Next.js yang menangani semua antarmuka pengguna.
+- **`/backend`**: API FastAPI yang berisi semua logika backend, termasuk:
+    - **`app/api/`**: Definisi endpoint.
+    - **`app/services/`**: Logika bisnis dan implementasi pola Adapter.
+    - **`app/core/`**: Konfigurasi aplikasi, Celery, dan pengaturan lainnya.
+    - **`app/tasks.py`**: Definisi tugas-tugas yang akan dijalankan oleh Celery.
+- **`/DEVELOPMENT_PLAN.md`**: Dokumen utama yang menjadi pedoman pengembangan proyek ini.

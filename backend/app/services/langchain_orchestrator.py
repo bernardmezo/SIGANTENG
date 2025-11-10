@@ -1,65 +1,68 @@
-from langchain.agents import AgentExecutor, create_react_agent
-from langchain_core.prompts import ChatPromptTemplate
-from langchain_community.llms import HuggingFaceHub
-from langchain.tools import tool
+# backend/app/services/langchain_orchestrator.py
+# =================================================================
+#
+#                  LangChain Orchestrator Service
+#
+# =================================================================
+#
+#  Purpose:
+#  --------
+#  This service was originally designed to orchestrate complex
+#  interactions using LangChain agents. After refactoring core model
+#  interactions into adapters, this service's role is simplified.
+#
+#  Current Role:
+#  -------------
+#  - Acts as a high-level coordinator for processing text input.
+#  - Uses the LLMService to generate a primary response.
+#  - (Future) Can be expanded to re-introduce more complex agentic
+#    workflows using the new adapter-based services.
+#
+# =================================================================
 
-from app.services.nlp_service import NLPService
-from app.services.recommendation_service import RecommendationService
 from app.models.schemas import ChatResponse
+from app.services.llm_service import LLMService
+from app.services.recommendation_service import RecommendationService
+
 
 class LangChainOrchestrator:
+    """
+    Orchestrates NLP tasks, using various services.
+    NOTE: The 'LangChain' name is kept for now, but its role is simplified
+    to use the new adapter-based LLMService.
+    """
+
     def __init__(self):
-        self.nlp_service = NLPService()
+        self.llm_service = LLMService(provider="huggingface")
         self.recommendation_service = RecommendationService()
-        self.llm = HuggingFaceHub(repo_id="HuggingFaceH4/zephyr-7b-beta", 
-                                  task="text-generation", 
-                                  model_kwargs={
-                                      "temperature": 0.7,
-                                      "max_new_tokens": 500
-                                  })
-        self.agent_executor = self._initialize_agent()
-
-    @tool
-    async def get_recommendations(self, query: str) -> list[str]:
-        """Use this tool to get recommendations based on a user query. Input should be a string query."""
-        return await self.recommendation_service.get_recommendations(query)
-
-    def _initialize_agent(self) -> AgentExecutor:
-        tools = [self.get_recommendations]
-        
-        # Define the prompt for the agent
-        prompt = ChatPromptTemplate.from_messages([
-            ("system", "You are a helpful AI assistant. Use the available tools to answer questions and provide recommendations."),
-            ("human", "{input}"),
-            ("placeholder", "{agent_scratchpad}")
-        ])
-
-        # Create the ReAct agent
-        agent = create_react_agent(self.llm, tools, prompt)
-        
-        # Create the agent executor
-        agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=True)
-        return agent_executor
+        # The agent is temporarily disabled in favor of a direct service call.
+        # self.agent_executor = self._initialize_agent()
 
     async def run_text_pipeline(self, text: str) -> ChatResponse:
-        # First, process text with NLP for initial understanding or sentiment
-        # nlp_result = await self.nlp_service.process_text(text)
+        """
+        Processes text by generating a response from the LLM and
+        fetching recommendations.
 
-        # Then, use the LangChain agent for more complex reasoning and tool usage
+        Args:
+            text: The user's input text.
+
+        Returns:
+            A ChatResponse object containing the response and recommendations.
+        """
         try:
-            agent_response = await self.agent_executor.ainvoke({"input": text})
-            # The agent_response will contain the output from the LLM after using tools
-            # You might need to parse this output based on how your agent is configured
-            
-            response_text = agent_response.get("output", "No specific response from AI.")
-            recommendations = [] # Populate if agent explicitly returns recommendations
+            # Generate the main text response using the LLM service
+            response_text = await self.llm_service.generate_response(text)
 
-            # Example of how you might extract recommendations if the agent's output format is known
-            if "recommendation" in response_text.lower():
-                # This is a placeholder, actual parsing would depend on agent's output
-                recommendations.append("Extracted a potential recommendation from agent output.")
+            # Get recommendations based on the input text
+            recommendations = await self.recommendation_service.get_recommendations(
+                text
+            )
 
-            return ChatResponse(response_text=response_text, recommendations=recommendations)
+            return ChatResponse(
+                response_text=response_text, recommendations=recommendations
+            )
         except Exception as e:
-            print(f"Error running LangChain agent: {e}")
-            return ChatResponse(response_text=f"Error processing your request: {e}")
+            print(f"Error running text pipeline: {e}")
+            return ChatResponse(
+                response_text=f"Sorry, there was an error processing your request: {e}"
+            )

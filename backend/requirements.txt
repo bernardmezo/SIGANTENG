@@ -5,10 +5,14 @@ uvicorn[standard]
 python-dotenv
 python-multipart
 
+# === Background Tasks & Caching ===
+celery
+redis
+
 # === Layanan Cloud & Database ===
 # Klien untuk berinteraksi dengan layanan eksternal
 cloudinary
-clerk-python-sdk
+clerk-backend-api
 psycopg2-binary
 
 # === AI & Machine Learning ===
@@ -17,6 +21,8 @@ transformers
 torch
 torchaudio
 torchvision
+openai
+gtts
 
 # Pustaka spesifik untuk model atau tugas tertentu
 sentence-transformers  # Untuk model embeddings

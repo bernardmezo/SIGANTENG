@@ -1,50 +1,49 @@
-from pinecone import Pinecone, Index, PodSpec
+# backend/app/services/vector_db_service.py
+# =================================================================
+#
+#                 Vector Database Service (Placeholder)
+#
+# =================================================================
+#
+#  Purpose:
+#  --------
+#  Provides a placeholder implementation for a vector database service.
+#  This allows the application to run without a concrete vector DB
+#  dependency (like Pinecone) while the architecture is being developed.
+#
+#  Key Features:
+#  -------------
+#  - Implements the same method signatures as a real service.
+#  - Returns empty or default data.
+#  - Logs warnings to indicate it's a placeholder.
+#
+# =================================================================
+
 from app.core.config import settings
 
-class PineconeService:
+
+class PineconeService:  # Name is kept temporarily to avoid breaking imports
+    """
+    Placeholder service for vector database interactions.
+    This service does NOT connect to a real vector database.
+    """
+
     def __init__(self):
+        # Check if keys exist to simulate a real service's setup logic
         self.api_key = settings.PINECONE_API_KEY
-        self.environment = settings.PINECONE_ENVIRONMENT
-        self.index_name = "ai-assistant-kb" # Default index name
-        self.pinecone = None
-        self.index = None
-        
-        if self.api_key and self.environment:
-            self.pinecone = Pinecone(api_key=self.api_key, environment=self.environment)
-            # Ensure index exists or create it
-            if self.index_name not in self.pinecone.list_indexes():
-                self.pinecone.create_index(
-                    name=self.index_name,
-                    dimension=1536, # Example dimension for OpenAI embeddings
-                    metric='cosine',
-                    spec=PodSpec(environment=self.environment)
-                )
-            self.index = self.pinecone.Index(self.index_name)
-        else:
-            print("Pinecone API key or environment not set. Pinecone service will be inactive.")
+        if not self.api_key:
+            print(
+                "WARNING: Pinecone API key not set. Vector DB Service is in placeholder mode."
+            )
 
     async def upsert_vector(self, id: str, vector: list[float], metadata: dict = None):
-        if not self.index:
-            print("Pinecone index not initialized.")
-            return
-        try:
-            self.index.upsert(vectors=[{"id": id, "values": vector, "metadata": metadata}])
-            return True
-        except Exception as e:
-            print(f"Error upserting vector to Pinecone: {e}")
-            return False
+        """Placeholder for upserting a vector."""
+        print(f"PLACEHOLDER: Upserting vector for id {id}. Not implemented.")
+        return True
 
-    async def query_vectors(self, query_vector: list[float], top_k: int = 5) -> list[dict]:
-        if not self.index:
-            print("Pinecone index not initialized.")
-            return []
-        try:
-            response = self.index.query(
-                vector=query_vector,
-                top_k=top_k,
-                include_metadata=True
-            )
-            return response.matches
-        except Exception as e:
-            print(f"Error querying Pinecone: {e}")
-            return []
+    async def query_vectors(
+        self, query_vector: list[float], top_k: int = 5
+    ) -> list[dict]:
+        """Placeholder for querying vectors."""
+        print("PLACEHOLDER: Querying vectors. Returning empty list. Not implemented.")
+        return []
