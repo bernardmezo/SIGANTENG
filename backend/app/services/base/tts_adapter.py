@@ -27,12 +27,16 @@ class BaseTTSAdapter(ABC):
     @abstractmethod
     async def generate_audio(self, text: str) -> str:
         """
-        Generates audio from a text string.
-
-        Args:
-            text: The input text to be converted to speech.
-
-        Returns:
-            A base64-encoded string representing the generated audio.
+        Generates audio for a single text input.
         """
         pass
+
+    async def generate_audios_batch(self, texts: list[str]) -> list[str]:
+        """
+        Generates audio for a batch of text inputs.
+
+        NOTE: This is a non-optimized default implementation.
+        Subclasses should override this method to leverage true batch
+        inference capabilities of the underlying model if available.
+        """
+        return [await self.generate_audio(text) for text in texts]

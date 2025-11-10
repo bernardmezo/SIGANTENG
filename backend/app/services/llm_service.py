@@ -18,16 +18,14 @@
 #
 # =================================================================
 
-from app.core.config import settings
-from app.services.adapters.hf_llm_adapter import HuggingFaceLLMAdapter
-from app.services.adapters.openai_llm_adapter import OpenAILLMAdapter
 from app.services.base.llm_adapter import BaseLLMAdapter
+from app.services.model_registry import get_model_registry
 
 
 class LLMService:
     """
     Service to interact with a Large Language Model.
-    It uses a specific adapter based on the configuration.
+    It uses a specific adapter based on the configuration retrieved from the ModelRegistry.
     """
 
     def __init__(self, provider: str | None = None):
@@ -38,28 +36,8 @@ class LLMService:
             provider: The specific provider to use. If None, defaults
                       to the one specified in the global settings.
         """
-        final_provider = provider or settings.DEFAULT_LLM_PROVIDER
-        self.adapter: BaseLLMAdapter = self._get_adapter(final_provider)
-
-    def _get_adapter(self, provider: str) -> BaseLLMAdapter:
-        """Factory method to get the appropriate LLM adapter."""
-        if provider == "openai" and settings.OPENAI_API_KEY:
-            return OpenAILLMAdapter()
-        elif provider == "huggingface" and settings.HF_API_TOKEN:
-            return HuggingFaceLLMAdapter()
-        else:
-            # Fallback logic
-            if settings.OPENAI_API_KEY:
-                print(
-                    f"Warning: LLM provider '{provider}' not available, falling back to 'openai'."
-                )
-                return OpenAILLMAdapter()
-            if settings.HF_API_TOKEN:
-                print(
-                    f"Warning: LLM provider '{provider}' not available, falling back to 'huggingface'."
-                )
-                return HuggingFaceLLMAdapter()
-            raise ValueError("No valid LLM provider is configured.")
+        model_registry = get_model_registry()
+        self.adapter: BaseLLMAdapter = model_registry.get_llm_adapter(provider)
 
     async def generate_response(self, prompt: str) -> str:
         """

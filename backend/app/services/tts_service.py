@@ -18,16 +18,14 @@
 #
 # =================================================================
 
-from app.core.config import settings
-from app.services.adapters.gtts_tts_adapter import GTTSTransformer
-from app.services.adapters.openai_tts_adapter import OpenAITTSAdapter
 from app.services.base.tts_adapter import BaseTTSAdapter
+from app.services.model_registry import get_model_registry
 
 
 class TTSService:
     """
     Service to perform Text-to-Speech conversion.
-    It uses a specific adapter based on the configuration.
+    It uses a specific adapter based on the configuration retrieved from the ModelRegistry.
     """
 
     def __init__(self, provider: str | None = None):
@@ -38,21 +36,8 @@ class TTSService:
             provider: The specific provider to use. If None, defaults
                       to the one specified in the global settings.
         """
-        final_provider = provider or settings.DEFAULT_TTS_PROVIDER
-        self.adapter: BaseTTSAdapter = self._get_adapter(final_provider)
-
-    def _get_adapter(self, provider: str) -> BaseTTSAdapter:
-        """Factory method to get the appropriate TTS adapter."""
-        if provider == "openai" and settings.OPENAI_API_KEY:
-            return OpenAITTSAdapter()
-        elif provider == "gtts":
-            return GTTSTransformer()
-        else:
-            # Default to gTTS as it has no key requirements
-            print(
-                f"Warning: TTS provider '{provider}' not available, falling back to 'gtts'."
-            )
-            return GTTSTransformer()
+        model_registry = get_model_registry()
+        self.adapter: BaseTTSAdapter = model_registry.get_tts_adapter(provider)
 
     async def generate_audio(self, text: str) -> str:
         """

@@ -76,3 +76,73 @@ Untuk tugas yang berjalan lama, alur kerjanya adalah sebagai berikut:
     uvicorn main:app --reload
     ```
     Server API akan aktif di `http://localhost:8000`. Dokumentasi interaktif (Swagger UI) tersedia di `http://localhost:8000/docs`.
+
+## Monitoring Background Tasks (Flower)
+
+Untuk memantau dan mengelola Celery worker dan task secara visual, Anda dapat menggunakan **Flower**.
+
+1.  **Install Flower**
+    Pastikan virtual environment Anda aktif, lalu jalankan:
+    ```bash
+    pip install flower
+    ```
+
+2.  **Jalankan Flower**
+    Buka **terminal ketiga** di dalam direktori `backend` yang sudah teraktivasi. Jalankan perintah berikut:
+    ```bash
+    celery -A app.core.celery_app.celery_app flower --port=5555
+    ```
+
+
+    **Buka Dashboard**
+    Buka browser Anda dan navigasi ke `http://localhost:5555` untuk melihat dashboard Flower.
+
+## Production Deployment Considerations
+
+**PENTING**: Jangan pernah menjalankan server Uvicorn secara langsung (exposed) di lingkungan produksi. Aplikasi FastAPI/Uvicorn harus selalu dijalankan di belakang *reverse proxy* yang lebih tangguh seperti **Nginx** atau **Traefik**.
+
+### Tanggung Jawab Reverse Proxy
+
+*Reverse proxy* akan menangani tugas-tugas berikut:
+1.  **Terminasi SSL/TLS**: Mengelola sertifikat HTTPS dan mengenkripsi/mendekripsi lalu lintas.
+2.  **Load Balancing**: Menyebarkan beban permintaan ke beberapa instance aplikasi Uvicorn.
+3.  **Rate Limiting**: Membatasi jumlah permintaan dari satu IP untuk mencegah serangan DoS.
+4.  **Request Size Limiting**: Membatasi ukuran badan permintaan (misalnya, untuk unggahan file) untuk mencegah serangan yang menghabiskan sumber daya.
+5.  **Menyajikan File Statis (jika ada)**: Nginx jauh lebih efisien dalam menyajikan file statis daripada server aplikasi Python.
+
+### Contoh Konfigurasi Nginx
+
+Berikut adalah contoh konfigurasi `server block` Nginx yang sangat dasar untuk mem-proxy permintaan ke aplikasi FastAPI yang berjalan di `localhost:8000`.
+
+```nginx
+server {
+    listen 80;
+    server_name your_domain.com;
+
+    # Redirect HTTP to HTTPS
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+server {
+    listen 443 ssl;
+    server_name your_domain.com;
+
+    # Ganti dengan path sertifikat SSL Anda
+    ssl_certificate /path/to/your/fullchain.pem;
+    ssl_certificate_key /path/to/your/privkey.pem;
+
+    # Pengaturan keamanan SSL
+    include /etc/letsencrypt/options-ssl-nginx.conf;
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+
+    location / {
+        proxy_pass http://127.0.0.1:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```

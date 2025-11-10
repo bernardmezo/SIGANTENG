@@ -27,12 +27,16 @@ class BaseSTTAdapter(ABC):
     @abstractmethod
     async def transcribe_audio(self, audio_base64: str) -> str:
         """
-        Transcribes audio from a base64-encoded string into text.
-
-        Args:
-            audio_base64: The base64-encoded string of the audio data.
-
-        Returns:
-            The transcribed text.
+        Transcribes a single audio input.
         """
         pass
+
+    async def transcribe_audios_batch(self, audios_base64: list[str]) -> list[str]:
+        """
+        Transcribes a batch of audio inputs.
+
+        NOTE: This is a non-optimized default implementation.
+        Subclasses should override this method to leverage true batch
+        inference capabilities of the underlying model if available.
+        """
+        return [await self.transcribe_audio(audio) for audio in audios_base64]

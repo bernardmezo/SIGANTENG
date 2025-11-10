@@ -1,6 +1,9 @@
 # backend/app/api/v1/endpoints/ai_assistant.py
+from functools import lru_cache
+
 from app.services.ai_orchestrator import AIOrchestratorService
 from app.services.langchain_orchestrator import LangChainOrchestrator
+from app.services.multimodal_pipeline import MultimodalPipeline
 from app.services.stt_service import STTService
 from app.services.tts_service import TTSService
 from app.services.vision_service import VisionService
@@ -13,24 +16,41 @@ router = APIRouter()
 # --- Dependency Injection Providers ---
 
 
+@lru_cache
 def get_langchain_orchestrator() -> LangChainOrchestrator:
     return LangChainOrchestrator()
 
 
+@lru_cache
 def get_stt_service() -> STTService:
     return STTService()
 
 
+@lru_cache
 def get_vision_service() -> VisionService:
     return VisionService()
 
 
+@lru_cache
 def get_tts_service() -> TTSService:
     return TTSService()
 
 
+@lru_cache
 def get_ai_orchestrator() -> AIOrchestratorService:
     return AIOrchestratorService()
+
+
+@lru_cache
+def get_multimodal_pipeline() -> MultimodalPipeline:
+    """
+    Factory for the MultimodalPipeline, injecting cached services.
+    """
+    return MultimodalPipeline(
+        vision_service=get_vision_service(),
+        langchain_orchestrator=get_langchain_orchestrator(),
+        tts_service=get_tts_service(),
+    )
 
 
 # --- Pydantic Models ---
@@ -106,26 +126,22 @@ async def process_audio_input(
     )
 
 
-@router.post("/process_image", response_model=AIResponse)
-async def process_image_input(
+@router.post(
+    "/background/process_image",
+    response_model=TaskSubmissionResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+def submit_image_processing_task(
     input: ImageInput,
-    vision_service: VisionService = Depends(get_vision_service),
-    langchain_orchestrator: LangChainOrchestrator = Depends(get_langchain_orchestrator),
-    tts_service: TTSService = Depends(get_tts_service),
+    ai_orchestrator: AIOrchestratorService = Depends(get_ai_orchestrator),
 ):
-    image_description = await vision_service.get_image_description(input.image_base64)
-    if not image_description:
-        raise HTTPException(status_code=400, detail="Could not understand image")
-    response = await langchain_orchestrator.run_text_pipeline(
-        f"Analyze this image: {image_description}"
-    )
-    audio_base64 = None
-    if response.response_text:
-        audio_base64 = await tts_service.generate_audio(response.response_text)
-    return AIResponse(
-        response_text=response.response_text,
-        recommendations=response.recommendations,
-        audio_base64=audio_base64,
+    """
+    Accepts an image and submits it to the background multimodal pipeline task.
+    """
+    task_id = ai_orchestrator.submit_multimodal_pipeline(input.image_base64)
+    return JSONResponse(
+        content={"task_id": task_id, "status": "PENDING"},
+        status_code=status.HTTP_202_ACCEPTED,
     )
 
 

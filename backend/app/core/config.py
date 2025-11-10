@@ -13,7 +13,9 @@ class Settings(BaseSettings):
     API_V1_STR: str = "/api/v1"
 
     # CORS
-    BACKEND_CORS_ORIGINS: List[str] = ["http://localhost:3000", "http://localhost:8000"]
+    # IMPORTANT: In production, this MUST be set to the specific frontend domain.
+    # e.g., ["https://www.your-frontend.com"]
+    BACKEND_CORS_ORIGINS: List[str] = []
 
     # --- AI Provider Default Settings ---
     # Change these values in your .env file to switch default models
@@ -26,6 +28,10 @@ class Settings(BaseSettings):
     )
 
     # --- API Keys ---
+    # !!! WARNING: For production, do not load secrets from .env files.
+    # Use a secure secret management service like AWS Secrets Manager,
+    # Google Secret Manager, or inject environment variables securely
+    # during your CI/CD pipeline.
     # Hugging Face
     HF_API_TOKEN: str = os.getenv("HF_API_TOKEN", "")
 
@@ -36,6 +42,7 @@ class Settings(BaseSettings):
     PINECONE_API_KEY: str = os.getenv("PINECONE_API_KEY", "")
 
     # --- Infrastructure ---
+    # !!! WARNING: For production, do not load secrets from .env files.
     # Database (Neon)
     DATABASE_URL: str = os.getenv("DATABASE_URL", "")
 
@@ -43,6 +50,7 @@ class Settings(BaseSettings):
     REDIS_URL: str = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 
     # --- External Services ---
+    # !!! WARNING: For production, do not load secrets from .env files.
     # Authentication (Clerk)
     CLERK_SECRET_KEY: str = os.getenv("CLERK_SECRET_KEY", "")
 

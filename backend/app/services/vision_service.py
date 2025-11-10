@@ -18,57 +18,76 @@
 #
 # =================================================================
 
+import hashlib
+import logging
+
+import redis
 from app.core.config import settings
-from app.services.adapters.hf_vision_adapter import HuggingFaceVisionAdapter
-from app.services.adapters.openai_vision_adapter import OpenAIVisionAdapter
 from app.services.base.vision_adapter import BaseVisionAdapter
+from app.services.model_registry import get_model_registry
+
+logger = logging.getLogger(__name__)
 
 
 class VisionService:
     """
-    Service to interact with a computer vision model.
-    It uses a specific adapter based on the configuration.
+    Service to interact with a computer vision model, with a Redis-based
+    caching layer to optimize repeated requests.
     """
 
     def __init__(self, provider: str | None = None):
         """
-        Initializes the service.
-
-        Args:
-            provider: The specific provider to use. If None, defaults
-                      to the one specified in the global settings.
+        Initializes the service and the Redis client for caching.
         """
-        final_provider = provider or settings.DEFAULT_VISION_PROVIDER
-        self.adapter: BaseVisionAdapter = self._get_adapter(final_provider)
+        model_registry = get_model_registry()
+        self.adapter: BaseVisionAdapter = model_registry.get_vision_adapter(provider)
+        try:
+            self.redis_client = redis.from_url(
+                settings.REDIS_URL, decode_responses=True
+            )
+            logger.info("VisionService connected to Redis for caching.")
+        except redis.exceptions.ConnectionError:
+            logger.warning(
+                "Could not connect to Redis for VisionService caching. Caching will be disabled."
+            )
+            self.redis_client = None
 
-    def _get_adapter(self, provider: str) -> BaseVisionAdapter:
-        """Factory method to get the appropriate vision adapter."""
-        if provider == "openai" and settings.OPENAI_API_KEY:
-            return OpenAIVisionAdapter()
-        elif provider == "huggingface" and settings.HF_API_TOKEN:
-            return HuggingFaceVisionAdapter()
-        else:
-            # Fallback logic
-            if settings.OPENAI_API_KEY:
-                print(
-                    f"Warning: Vision provider '{provider}' not available, falling back to 'openai'."
-                )
-                return OpenAIVisionAdapter()
-            if settings.HF_API_TOKEN:
-                print(
-                    f"Warning: Vision provider '{provider}' not available, falling back to 'huggingface'."
-                )
-                return HuggingFaceVisionAdapter()
-            raise ValueError("No valid vision provider is configured.")
+    def _get_image_hash(self, image_base64: str) -> str:
+        """Computes a SHA256 hash of the base64 image string."""
+        return hashlib.sha256(image_base64.encode()).hexdigest()
 
     async def get_image_description(self, image_base64: str) -> str:
         """
-        Generates a description for an image using the selected adapter.
-
-        Args:
-            image_base64: The base64-encoded image string.
-
-        Returns:
-            A textual description of the image.
+        Generates a description for an image, utilizing a cache to avoid
+        re-processing identical images.
         """
-        return await self.adapter.get_image_description(image_base64)
+        if not self.redis_client:
+            # Fallback to direct call if Redis is not available
+            return await self.adapter.get_image_description(image_base64)
+
+        image_hash = self._get_image_hash(image_base64)
+        cache_key = f"cache:vision:{image_hash}"
+
+        # 1. Check cache first
+        try:
+            cached_description = self.redis_client.get(cache_key)
+            if cached_description:
+                logger.info(f"Cache hit for image hash: {image_hash}")
+                return cached_description
+        except redis.exceptions.RedisError as e:
+            logger.error(f"Redis GET error: {e}. Bypassing cache.")
+
+        logger.info(f"Cache miss for image hash: {image_hash}. Calling adapter.")
+
+        # 2. If miss, call the adapter
+        description = await self.adapter.get_image_description(image_base64)
+
+        # 3. Store the new result in cache
+        if description:
+            try:
+                # Cache result for 24 hours
+                self.redis_client.set(cache_key, description, ex=86400)
+            except redis.exceptions.RedisError as e:
+                logger.error(f"Redis SET error: {e}. Failed to cache result.")
+
+        return description
